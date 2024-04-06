@@ -1,0 +1,22 @@
+name = "glyph_codegen"
+version = "0.1.0"
+
+description = "Codegen for JSON"
+licences = ["Apache-2.0"]
+repository = { type = "github", user = "grottohub", repo = "glyph" }
+links = [{ title = "Website", href = "https://gleam.run" }]
+
+target = "erlang"
+gleam = ">= 0.32.0"
+
+[dependencies]
+gleam_stdlib = "~> 0.34 or ~> 1.0"
+argv = "~> 1.0"
+gleam_bbmustache = "~> 2.2"
+simplifile = "~> 1.6"
+shellout = "~> 1.6"
+glance = "~> 0.8"
+justin = "~> 1.0"
+
+[dev-dependencies]
+gleeunit = "~> 1.0"
