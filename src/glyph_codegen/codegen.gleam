@@ -9,7 +9,7 @@ import gleam/bbmustache as templ
 import simplifile
 import shellout
 import glance
-import justin 
+import justin
 
 const imports_template = "
 import gleam/dynamic
@@ -42,6 +42,10 @@ pub fn decode_{{type_snake_case}}(
 }
 "
 
+pub fn generate(args: Args) {
+  codegen(args)
+}
+
 pub fn main() {
   case simplifile.verify_is_file("./gleam.toml") {
     Ok(exists) if exists == True -> Nil
@@ -49,8 +53,13 @@ pub fn main() {
   }
 
   let assert Args(..) as args = parse_args(argv.load().arguments)
+  codegen(args)
+}
+
+fn codegen(args: Args) {
+  io.debug(simplifile.read_directory("."))
   let assert Ok(source) =
-    simplifile.read("../src/" <> args.import_module <> ".gleam")
+    simplifile.read("./src/" <> args.import_module <> ".gleam")
   let assert Ok(module) = glance.module(source)
 
   let output_path = args.out_file
@@ -77,7 +86,7 @@ pub fn main() {
       |> list.at(0)
 
     let fields_decoders = get_fields(first_variant.fields)
-    let rendered = generate(type_name, fields_decoders)
+    let rendered = render_template(args, type_name, fields_decoders)
 
     let assert Ok(_) = simplifile.append(to: output_path, contents: rendered)
   })
@@ -130,7 +139,7 @@ fn convert_type_to_decoder(field: glance.Field(glance.Type)) -> FieldDecoder {
       module: _,
       parameters: [glance.NamedType("Snowflake", module: _, parameters: [])],
     ) -> Field(id, "dynamic.list(dynamic.string)")
-     glance.NamedType(
+    glance.NamedType(
         "List",
         module: _,
         parameters: [glance.NamedType(name, module: _, parameters: [])],
@@ -193,21 +202,17 @@ fn convert_type_to_decoder(field: glance.Field(glance.Type)) -> FieldDecoder {
         format("dynamic.dict(dynamic.string, decode_%)", [justin.snake_case(p2)]),
       )
     // Option(List)
-     glance.NamedType(
-        "Option",
-        module: _,
-        parameters: [
-          glance.NamedType(
-            "List",
-            module: _,
-            parameters: [glance.NamedType("Snowflake", module: _, parameters: [])],
-          ),
-        ],
-      ) ->
-      OptionalField(
-        id,
-        "dynamic.list(dynamic.string)",
-      )
+    glance.NamedType(
+      "Option",
+      module: _,
+      parameters: [
+        glance.NamedType(
+          "List",
+          module: _,
+          parameters: [glance.NamedType("Snowflake", module: _, parameters: [])],
+        ),
+      ],
+    ) -> OptionalField(id, "dynamic.list(dynamic.string)")
     glance.NamedType(
         "Option",
         module: _,
@@ -268,14 +273,19 @@ fn convert_type_to_decoder(field: glance.Field(glance.Type)) -> FieldDecoder {
         glance.NamedType(p1, module: _, parameters: []),
         glance.NamedType(p2, module: _, parameters: []),
       ],
-    ) -> Field(id, format("dynamic.dict(dynamic.%, dynamic.%)", [
-      justin.snake_case(p1), justin.snake_case(p2)
-      ]))
+    ) ->
+      Field(
+        id,
+        format("dynamic.dict(dynamic.%, dynamic.%)", [
+          justin.snake_case(p1),
+          justin.snake_case(p2),
+        ]),
+      )
     _ -> panic as "unsupported type"
   }
 }
 
-type Args {
+pub type Args {
   Args(
     types: List(String),
     out_file: String,
@@ -321,7 +331,7 @@ fn parse_args(arguments: List(String)) -> Args {
   }
 }
 
-fn generate(type_name, fields: List(FieldDecoder)) {
+fn render_template(args: Args, type_name, fields: List(FieldDecoder)) {
   let fields =
     fields
     |> list.index_map(fn(x, idx) {
@@ -333,6 +343,11 @@ fn generate(type_name, fields: List(FieldDecoder)) {
       let #(func_name, name, arg) = case x {
         Field(name, arg) -> #("dynamic.field", name, arg)
         OptionalField(name, arg) -> #("dynamic.optional_field", name, arg)
+      }
+
+      let name = case dict.get(args.rename, name) {
+        Ok(renamed) -> renamed
+        Error(_) -> name
       }
 
       templ.object([
