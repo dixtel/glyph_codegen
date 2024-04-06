@@ -1,9 +1,9 @@
 name = "glyph_codegen"
-version = "0.2.0"
+version = "0.3.0"
 
 description = "Codegen for JSON"
 licences = ["Apache-2.0"]
-repository = { type = "github", user = "grottohub", repo = "glyph" }
+repository = { type = "github", user = "dixtel", repo = "glyph_codegen" }
 links = [{ title = "Website", href = "https://gleam.run" }]
 
 target = "erlang"
